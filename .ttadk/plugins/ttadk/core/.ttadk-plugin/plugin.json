@@ -1,0 +1,48 @@
+{
+  "name": "ttadk/core",
+  "display_name": "TTADK SDD Workflow",
+  "version": "1.0.0",
+  "description": "TTADK SDD workflow commands and MCP configs",
+  "author": {"name": "ttadk", "email": "ttadk@bytedance.com"},
+  "tags": [
+    "sdd",
+    "adk"
+  ],
+  "commands": [
+    {"name": "plan", "path": "adk/sdd/plan.md"},
+    {"name": "specify", "path": "adk/sdd/specify.md"},
+    {"name": "tasks", "path": "adk/sdd/tasks.md"},
+    {"name": "implement", "path": "adk/sdd/implement.md"},
+    {"name": "clarify", "path": "adk/sdd/clarify.md"},
+    {"name": "analyze", "path": "adk/sdd/analyze.md"},
+    {"name": "commit", "path": "adk/commit.md"},
+    {"name": "archive", "path": "adk/sdd/archive.md"},
+    {"name": "constitution", "path": "adk/sdd/constitution.md"},
+    {"name": "ff", "path": "adk/sdd/ff.md"},
+    {"name": "erd", "path": "adk/sdd/erd.md"},
+    {"name": "readiness", "path": "adk/readiness.md"},
+    {"name": "help", "path": "adk/help.md"},
+    {"name": "brainstorm", "path": "adk/sdd/brainstorm.md"}
+  ],
+  "skills": [
+    {"name": "ttadk-knowledge", "path": "ttadk-knowledge"},
+    {"name": "adk-help", "path": "adk-help"},
+    {"name": "adk-sdd-analyze", "path": "adk-sdd-analyze"},
+    {"name": "adk-sdd-archive", "path": "adk-sdd-archive"},
+    {"name": "adk-commit", "path": "adk-commit"},
+    {"name": "adk-sdd-constitution", "path": "adk-sdd-constitution"},
+    {"name": "adk-sdd-erd", "path": "adk-sdd-erd"},
+    {"name": "adk-sdd-implement", "path": "adk-sdd-implement"},
+    {"name": "adk-sdd-plan", "path": "adk-sdd-plan"},
+    {"name": "adk-sdd-specify", "path": "adk-sdd-specify"},
+    {"name": "adk-sdd-tasks", "path": "adk-sdd-tasks"},
+    {"name": "adk-sdd-clarify", "path": "adk-sdd-clarify"},
+    {"name": "adk-sdd-brainstorm", "path": "adk-sdd-brainstorm"},
+    {"name": "adk-sdd-ff", "path": "adk-sdd-ff"},
+    {"name": "adk-readiness", "path": "adk-readiness"}
+  ],
+  "mcps": [
+    {"name": "lark_docs", "path": "lark_docs.json"},
+    {"name": "tiksearch", "path": "tiksearch.json"}
+  ]
+}
