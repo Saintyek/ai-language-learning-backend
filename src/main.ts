@@ -19,11 +19,12 @@ async function bootstrap() {
   );
 
   // 配置 Swagger 文档（通用配置，新增模块无需修改此处）
+  const port = process.env.PORT ?? 3000;
   const config = new DocumentBuilder()
     .setTitle('AI 语言学习 API')
     .setDescription('AI 语言学习平台后端接口文档')
     .setVersion('1.0')
-    .addServer('http://localhost:3000', '本地开发环境')
+    .addServer(`http://localhost:${port}`, '本地开发环境')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -31,8 +32,8 @@ async function bootstrap() {
   // 设置 Swagger UI 路径（注意：Swagger UI 路径不使用全局前缀）
   SwaggerModule.setup('api-docs', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
-  console.log('应用已启动，监听端口: 3000');
-  console.log('API 文档地址: http://localhost:3000/api-docs');
+  await app.listen(port);
+  console.log(`应用已启动，监听端口: ${port}`);
+  console.log(`API 文档地址: http://localhost:${port}/api-docs`);
 }
 void bootstrap();
