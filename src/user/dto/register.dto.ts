@@ -1,4 +1,12 @@
-import { IsString, IsEmail, MinLength, Validate, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  MinLength,
+  Validate,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**

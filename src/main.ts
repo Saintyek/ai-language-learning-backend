@@ -25,9 +25,9 @@ async function bootstrap() {
     .setVersion('1.0')
     .addServer('http://localhost:3000', '本地开发环境')
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
-  
+
   // 设置 Swagger UI 路径（注意：Swagger UI 路径不使用全局前缀）
   SwaggerModule.setup('api-docs', app, document);
 
@@ -35,4 +35,4 @@ async function bootstrap() {
   console.log('应用已启动，监听端口: 3000');
   console.log('API 文档地址: http://localhost:3000/api-docs');
 }
-bootstrap();
+void bootstrap();

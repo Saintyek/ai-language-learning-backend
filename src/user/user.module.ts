@@ -9,9 +9,7 @@ import { User } from './user.entity';
  * 负责处理用户相关的所有业务逻辑
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User]),
-  ],
+  imports: [TypeOrmModule.forFeature([User])],
   providers: [UserService],
   controllers: [UserController],
   exports: [UserService],

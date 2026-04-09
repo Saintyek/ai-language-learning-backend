@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
+import { DigitalHumanModule } from './digital-human/digital-human.module';
 
 @Module({
   imports: [
@@ -28,6 +29,8 @@ import { UserModule } from './user/user.module';
     }),
     // 导入用户模块
     UserModule,
+    // 导入数字人模块
+    DigitalHumanModule,
   ],
   controllers: [AppController],
   providers: [AppService],
