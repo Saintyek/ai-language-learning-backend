@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { DigitalHumanModule } from './digital-human/digital-human.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -31,6 +32,8 @@ import { DigitalHumanModule } from './digital-human/digital-human.module';
     UserModule,
     // 导入数字人模块
     DigitalHumanModule,
+    // 导入聊天模块
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
