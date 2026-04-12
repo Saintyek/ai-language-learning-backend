@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { ChatStreamRequestDto } from './dto/chat-stream-request.dto';
+import { getScenePrompt, LanguageCode } from './prompts/index';
 
 interface ArkStreamChunkChoiceDelta {
   content?: string;
@@ -25,8 +26,12 @@ interface ArkStreamChunk {
   };
 }
 
-const ARK_API_URL =
-  'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+const ARK_API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
 const ARK_MODEL = 'doubao-1-5-lite-32k-250115';
 const ARK_REQUEST_TIMEOUT_MS = 60_000;
 const ARK_TEMPERATURE = 0.3;
@@ -47,6 +52,9 @@ export class ChatService {
       throw new InternalServerErrorException('请先配置 ARK_API_KEY');
     }
 
+    // 注入场景 prompt
+    const messages = this.injectScenePrompt(dto);
+
     const upstreamController = new AbortController();
     const timeout = setTimeout(() => {
       upstreamController.abort('timeout');
@@ -65,17 +73,17 @@ export class ChatService {
 
       try {
         upstreamResponse = await fetch(ARK_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
           body: JSON.stringify({
             model: ARK_MODEL,
             stream: true,
             temperature: ARK_TEMPERATURE,
             max_tokens: ARK_MAX_TOKENS,
-            messages: dto.messages,
+            messages,
           }),
           signal: upstreamController.signal,
         });
@@ -95,13 +103,15 @@ export class ChatService {
 
       if (!upstreamResponse.ok || !upstreamResponse.body) {
         const errorText = await upstreamResponse.text();
-        throw new BadGatewayException(
-          errorText || 'Ark 流式请求失败',
-        );
+        throw new BadGatewayException(errorText || 'Ark 流式请求失败');
       }
 
       this.writeSseEvent(response, 'start', { model: ARK_MODEL });
-      await this.pipeArkStream(upstreamResponse.body, response, upstreamController);
+      await this.pipeArkStream(
+        upstreamResponse.body,
+        response,
+        upstreamController,
+      );
       this.writeSseEvent(response, 'done', { model: ARK_MODEL });
     } catch (error) {
       if (requestSignal?.aborted) {
@@ -125,6 +135,34 @@ export class ChatService {
       clearTimeout(timeout);
       requestSignal?.removeEventListener('abort', abortUpstream);
     }
+  }
+
+  /**
+   * 注入场景 prompt 到消息列表
+   */
+  private injectScenePrompt(dto: ChatStreamRequestDto): ChatMessage[] {
+    const messages: ChatMessage[] = [];
+
+    // 如果有场景和语言，注入场景 prompt
+    if (dto.scenario && dto.language) {
+      const scenePrompt = getScenePrompt(dto.scenario, dto.language);
+      if (scenePrompt) {
+        messages.push({
+          role: 'system',
+          content: scenePrompt,
+        });
+      }
+    }
+
+    // 添加用户消息
+    for (const msg of dto.messages) {
+      messages.push({
+        role: msg.role,
+        content: msg.content,
+      });
+    }
+
+    return messages;
   }
 
   private async pipeArkStream(

@@ -8,6 +8,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import type { LanguageCode } from '../prompts/index';
 
 class ChatMessageDto {
   @ApiProperty({ enum: ['system', 'user', 'assistant'], example: 'user' })
@@ -32,4 +33,24 @@ export class ChatStreamRequestDto {
   @ValidateNested({ each: true })
   @Type(() => ChatMessageDto)
   messages: ChatMessageDto[];
+
+  @ApiProperty({
+    required: false,
+    example: 'role/扮演老师',
+    description: '场景标识，格式为 "一级场景/二级场景"',
+  })
+  @IsOptional()
+  @IsString()
+  scenario?: string;
+
+  @ApiProperty({
+    required: false,
+    enum: ['cn', 'jp', 'kr', 'us'],
+    example: 'us',
+    description: '目标学习语言：cn-中文, jp-日文, kr-韩语, us-美式英语',
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['cn', 'jp', 'kr', 'us'])
+  language?: LanguageCode;
 }
