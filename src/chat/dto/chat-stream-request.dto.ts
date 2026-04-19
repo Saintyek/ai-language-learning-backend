@@ -53,4 +53,13 @@ export class ChatStreamRequestDto {
   @IsString()
   @IsIn(['cn', 'jp', 'kr', 'us'])
   language?: LanguageCode;
+
+  @ApiProperty({
+    required: false,
+    example: '1',
+    description: '会话ID，如果传了则会保存消息到该会话',
+  })
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
 }

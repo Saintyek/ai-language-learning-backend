@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { ChatStreamRequestDto } from './dto/chat-stream-request.dto';
 import { getScenePrompt, LanguageCode } from './prompts/index';
+import { ChatSessionService } from './chat-session.service';
 
 interface ArkStreamChunkChoiceDelta {
   content?: string;
@@ -39,7 +40,10 @@ const ARK_MAX_TOKENS = 150;
 
 @Injectable()
 export class ChatService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly chatSessionService: ChatSessionService,
+  ) {}
 
   async streamChat(
     dto: ChatStreamRequestDto,
@@ -67,6 +71,9 @@ export class ChatService {
     };
 
     requestSignal?.addEventListener('abort', abortUpstream, { once: true });
+
+    // 收集助手响应内容
+    let assistantContent = '';
 
     try {
       let upstreamResponse: globalThis.Response;
@@ -107,12 +114,21 @@ export class ChatService {
       }
 
       this.writeSseEvent(response, 'start', { model: ARK_MODEL });
-      await this.pipeArkStream(
+      assistantContent = await this.pipeArkStream(
         upstreamResponse.body,
         response,
         upstreamController,
       );
       this.writeSseEvent(response, 'done', { model: ARK_MODEL });
+
+      // 如果传了 sessionId，保存消息到数据库
+      if (dto.sessionId && assistantContent) {
+        await this.saveMessagesToSession(
+          dto.sessionId,
+          dto.messages,
+          assistantContent,
+        );
+      }
     } catch (error) {
       if (requestSignal?.aborted) {
         return;
@@ -134,6 +150,42 @@ export class ChatService {
     } finally {
       clearTimeout(timeout);
       requestSignal?.removeEventListener('abort', abortUpstream);
+    }
+  }
+
+  /**
+   * 保存消息到会话
+   */
+  private async saveMessagesToSession(
+    sessionId: string,
+    userMessages: Array<{ role: string; content: string }>,
+    assistantContent: string,
+  ): Promise<void> {
+    try {
+      // 只保存最后一条用户消息（当前对话）
+      const lastUserMessage = [...userMessages]
+        .reverse()
+        .find((msg) => msg.role === 'user');
+
+      if (lastUserMessage) {
+        await this.chatSessionService.addMessage(
+          sessionId,
+          'user',
+          lastUserMessage.content,
+        );
+      }
+
+      // 保存助手响应
+      if (assistantContent) {
+        await this.chatSessionService.addMessage(
+          sessionId,
+          'assistant',
+          assistantContent,
+        );
+      }
+    } catch (error) {
+      // 保存失败不影响主流程，只记录日志
+      console.error('Failed to save messages to session:', error);
     }
   }
 
@@ -169,10 +221,11 @@ export class ChatService {
     stream: ReadableStream<Uint8Array>,
     response: Response,
     upstreamController: AbortController,
-  ): Promise<void> {
+  ): Promise<string> {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let collectedContent = '';
 
     try {
       while (true) {
@@ -187,24 +240,34 @@ export class ChatService {
         buffer = segments.pop() ?? '';
 
         for (const segment of segments) {
-          this.handleSseSegment(segment, response);
+          const delta = this.handleSseSegment(segment, response);
+          if (delta) {
+            collectedContent += delta;
+          }
         }
       }
 
       if (buffer.trim()) {
-        this.handleSseSegment(buffer, response);
+        const delta = this.handleSseSegment(buffer, response);
+        if (delta) {
+          collectedContent += delta;
+        }
       }
     } finally {
       upstreamController.abort('stream_completed');
       reader.releaseLock();
     }
+
+    return collectedContent;
   }
 
-  private handleSseSegment(segment: string, response: Response): void {
+  private handleSseSegment(segment: string, response: Response): string | null {
     const lines = segment
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line.startsWith('data:'));
+
+    let collectedDelta = '';
 
     for (const line of lines) {
       const payload = line.slice(5).trim();
@@ -227,8 +290,11 @@ export class ChatService {
       const delta = chunk.choices?.[0]?.delta?.content;
       if (delta) {
         this.writeSseEvent(response, 'delta', { content: delta });
+        collectedDelta += delta;
       }
     }
+
+    return collectedDelta || null;
   }
 
   private writeSseEvent(
