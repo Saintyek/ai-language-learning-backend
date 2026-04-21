@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { DigitalHumanModule } from './digital-human/digital-human.module';
 import { ChatModule } from './chat/chat.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [
@@ -34,6 +35,8 @@ import { ChatModule } from './chat/chat.module';
     DigitalHumanModule,
     // 导入聊天模块
     ChatModule,
+    // 导入语言档案模块
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [AppService],
