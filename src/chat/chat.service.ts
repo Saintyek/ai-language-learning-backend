@@ -7,8 +7,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { ChatStreamRequestDto } from './dto/chat-stream-request.dto';
-import { getScenePrompt, LanguageCode } from './prompts/index';
+import {
+  getScenePrompt,
+  LanguageCode,
+  buildProfilePrompt,
+  ProfileData,
+} from './prompts/index';
 import { ChatSessionService } from './chat-session.service';
+import { ProfileService } from '../profile/profile.service';
 
 interface ArkStreamChunkChoiceDelta {
   content?: string;
@@ -43,6 +49,7 @@ export class ChatService {
   constructor(
     private readonly configService: ConfigService,
     private readonly chatSessionService: ChatSessionService,
+    private readonly profileService: ProfileService,
   ) {}
 
   async streamChat(
@@ -56,8 +63,8 @@ export class ChatService {
       throw new InternalServerErrorException('请先配置 ARK_API_KEY');
     }
 
-    // 注入场景 prompt
-    const messages = this.injectScenePrompt(dto);
+    // 注入场景 prompt（包含档案提示词）
+    const messages = await this.injectScenePrompt(dto);
 
     const upstreamController = new AbortController();
     const timeout = setTimeout(() => {
@@ -191,11 +198,44 @@ export class ChatService {
 
   /**
    * 注入场景 prompt 到消息列表
+   * 注意：档案提示词具有最高优先级，在场景提示词之前注入
    */
-  private injectScenePrompt(dto: ChatStreamRequestDto): ChatMessage[] {
+  private async injectScenePrompt(
+    dto: ChatStreamRequestDto,
+  ): Promise<ChatMessage[]> {
     const messages: ChatMessage[] = [];
 
-    // 如果有场景和语言，注入场景 prompt
+    // 1. 最高优先级：学习档案提示词
+    if (dto.language) {
+      try {
+        // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
+        const tempUserId = 1;
+        const profile = await this.profileService.getProfile(
+          tempUserId,
+          dto.language,
+        );
+        if (profile) {
+          const profilePrompt = buildProfilePrompt(
+            {
+              level: profile.level as ProfileData['level'],
+              motivations: profile.motivations,
+              goals: profile.goals,
+              dailyTime: profile.dailyTime,
+            },
+            dto.language,
+          );
+          messages.push({
+            role: 'system',
+            content: profilePrompt,
+          });
+        }
+      } catch (error) {
+        // 档案获取失败不应影响对话，记录日志后继续
+        console.error('Failed to get profile for prompt injection:', error);
+      }
+    }
+
+    // 2. 次优先级：场景提示词
     if (dto.scenario && dto.language) {
       const scenePrompt = getScenePrompt(dto.scenario, dto.language);
       if (scenePrompt) {
@@ -206,7 +246,7 @@ export class ChatService {
       }
     }
 
-    // 添加用户消息
+    // 3. 用户消息
     for (const msg of dto.messages) {
       messages.push({
         role: msg.role,
