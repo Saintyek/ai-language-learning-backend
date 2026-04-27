@@ -155,6 +155,28 @@ export class ChatSessionService {
   }
 
   /**
+   * 更新会话场景
+   * @param sessionId 会话ID（UUID）
+   * @param scenario 场景标识
+   * @returns 更新后的会话
+   */
+  async updateSessionScenario(
+    sessionId: string,
+    scenario: string,
+  ): Promise<ChatSession | null> {
+    const session = await this.sessionRepository.findOne({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      return null;
+    }
+
+    session.scenario = scenario;
+    return this.sessionRepository.save(session);
+  }
+
+  /**
    * 删除会话（及其所有消息）
    * @param sessionId 会话ID（UUID）
    * @param userId 用户ID

@@ -136,6 +136,14 @@ export class ChatService {
           assistantContent,
         );
       }
+
+      // 如果传了 scenario 和 sessionId，更新会话的场景标识
+      if (dto.sessionId && dto.scenario) {
+        await this.chatSessionService.updateSessionScenario(
+          dto.sessionId,
+          dto.scenario,
+        );
+      }
     } catch (error) {
       if (requestSignal?.aborted) {
         return;
