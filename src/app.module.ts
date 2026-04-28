@@ -7,6 +7,7 @@ import { UserModule } from './user/user.module';
 import { DigitalHumanModule } from './digital-human/digital-human.module';
 import { ChatModule } from './chat/chat.module';
 import { ProfileModule } from './profile/profile.module';
+import { TranslateModule } from './translate/translate.module';
 
 @Module({
   imports: [
@@ -37,6 +38,8 @@ import { ProfileModule } from './profile/profile.module';
     ChatModule,
     // 导入语言档案模块
     ProfileModule,
+    // 导入翻译模块
+    TranslateModule,
   ],
   controllers: [AppController],
   providers: [AppService],
