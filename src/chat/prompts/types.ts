@@ -1,4 +1,4 @@
-export type LanguageCode = 'cn' | 'jp' | 'kr' | 'us';
+export type LanguageCode = 'cn' | 'jp' | 'es' | 'us';
 
 export interface ScenePromptConfig {
   /** 系统角色设定模板 */

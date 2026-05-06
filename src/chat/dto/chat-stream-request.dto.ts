@@ -45,13 +45,13 @@ export class ChatStreamRequestDto {
 
   @ApiProperty({
     required: false,
-    enum: ['cn', 'jp', 'kr', 'us'],
+    enum: ['cn', 'jp', 'es', 'us'],
     example: 'us',
-    description: '目标学习语言：cn-中文, jp-日文, kr-韩语, us-美式英语',
+    description: '目标学习语言：cn-中文, jp-日文, es-西班牙语, us-美式英语',
   })
   @IsOptional()
   @IsString()
-  @IsIn(['cn', 'jp', 'kr', 'us'])
+  @IsIn(['cn', 'jp', 'es', 'us'])
   language?: LanguageCode;
 
   @ApiProperty({
