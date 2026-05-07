@@ -14,6 +14,8 @@ export interface TTSHttpRequest {
     audio_params: TTSAudioParams;
     ssml?: string;
     model?: string;
+    /** 额外参数，需要是 JSON 字符串格式，如：{"explicit_language": "ja"} */
+    additions?: string;
   };
 }
 
@@ -87,3 +89,23 @@ export const TTS_ERROR_CODES = {
   QUOTA_EXCEEDED: 45000000,
   SERVER_ERROR: 55000000,
 } as const;
+
+/** TTS API 支持的语言代码 */
+export type TtsLanguageCode = 'zh-cn' | 'ja' | 'en' | 'es-mx' | 'id';
+
+/**
+ * 将前端语言代码映射为 TTS API 语言代码
+ * @param langCode 前端语言代码: cn, jp, us, es
+ * @returns TTS API 语言代码
+ */
+export function mapLanguageCode(
+  langCode: string | undefined,
+): TtsLanguageCode | undefined {
+  const mapping: Record<string, TtsLanguageCode> = {
+    cn: 'zh-cn', // 中文
+    jp: 'ja', // 日文
+    us: 'en', // 美式英语
+    es: 'es-mx', // 西班牙语（墨西哥）
+  };
+  return langCode ? mapping[langCode] : undefined;
+}

@@ -6,6 +6,8 @@ import {
   TTSHttpRequest,
   TTSHttpResponse,
   TTS_ERROR_CODES,
+  TtsLanguageCode,
+  mapLanguageCode,
 } from './interfaces/volcengine-tts.interface';
 
 const TTS_HTTP_URL =
@@ -22,6 +24,7 @@ export class TtsService implements OnModuleDestroy {
   private sentenceEndRegex: RegExp = /[。！？.!?，,]/; // 包含逗号以实现更短的语音片段
   private maxBufferLength: number = 50; // 降低缓冲区长度以更快发送
   private pendingFlush: boolean = false; // 标记是否有待处理的刷新请求
+  private currentLanguage: TtsLanguageCode | undefined = undefined; // 当前语言
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('VOLCENGINE_TTS_API_KEY');
@@ -50,6 +53,21 @@ export class TtsService implements OnModuleDestroy {
   async onModuleDestroy() {
     this.audioCallbacks.clear();
     this.errorCallbacks.clear();
+  }
+
+  /**
+   * 设置当前语言（用于 TTS 合成）
+   * @param langCode 前端语言代码: cn, jp, us, es
+   */
+  setLanguage(langCode: string | undefined): void {
+    this.currentLanguage = mapLanguageCode(langCode);
+    console.log(
+      '[TTS] Language set to:',
+      this.currentLanguage,
+      '(from',
+      langCode,
+      ')',
+    );
   }
 
   /**
@@ -121,21 +139,33 @@ export class TtsService implements OnModuleDestroy {
     console.log(
       '[TTS] Sending text to HTTP API:',
       text.substring(0, 50) + '...',
+      'language:',
+      this.currentLanguage,
     );
+
+    // 构建基础请求体
+    const reqParams: TTSHttpRequest['req_params'] = {
+      text,
+      speaker: this.config.speaker!,
+      audio_params: {
+        format: this.config.format!,
+        sample_rate: this.config.sampleRate!,
+        bit_rate: this.config.bitRate,
+      },
+    };
+
+    // 添加语言参数（additions 需要是 JSON 字符串格式）
+    if (this.currentLanguage) {
+      reqParams.additions = JSON.stringify({
+        explicit_language: this.currentLanguage,
+      });
+    }
 
     const requestBody: TTSHttpRequest = {
       user: {
         uid: 'tts-service',
       },
-      req_params: {
-        text,
-        speaker: this.config.speaker!,
-        audio_params: {
-          format: this.config.format!,
-          sample_rate: this.config.sampleRate!,
-          bit_rate: this.config.bitRate,
-        },
-      },
+      req_params: reqParams,
     };
 
     const controller = new AbortController();

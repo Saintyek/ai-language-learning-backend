@@ -94,11 +94,15 @@ export class ChatService {
       dto.enableTTS,
       'isTtsEnabled:',
       isTtsEnabled,
+      'language:',
+      dto.language,
     );
 
     try {
       // 初始化 TTS 音频回调 (HTTP API 不需要 startSession)
       if (isTtsEnabled) {
+        // 设置 TTS 语言（关键：支持多语言语音合成）
+        this.ttsService.setLanguage(dto.language);
         // 注册音频回调
         ttsCleanup = this.ttsService.onAudio((audioBase64: string) => {
           this.writeSseEvent(response, 'audio', { audio: audioBase64 });
