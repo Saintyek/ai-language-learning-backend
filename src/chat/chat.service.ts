@@ -331,7 +331,11 @@ export class ChatService {
         buffer = segments.pop() ?? '';
 
         for (const segment of segments) {
-          const delta = this.handleSseSegment(segment, response, ttsEnabled);
+          const delta = await this.handleSseSegment(
+            segment,
+            response,
+            ttsEnabled,
+          );
           if (delta) {
             collectedContent += delta;
           }
@@ -339,7 +343,7 @@ export class ChatService {
       }
 
       if (buffer.trim()) {
-        const delta = this.handleSseSegment(buffer, response, ttsEnabled);
+        const delta = await this.handleSseSegment(buffer, response, ttsEnabled);
         if (delta) {
           collectedContent += delta;
         }
