@@ -15,6 +15,7 @@ import {
 } from './prompts/index';
 import { ChatSessionService } from './chat-session.service';
 import { ProfileService } from '../profile/profile.service';
+import { TtsService } from '../tts/tts.service';
 
 interface ArkStreamChunkChoiceDelta {
   content?: string;
@@ -50,6 +51,7 @@ export class ChatService {
     private readonly configService: ConfigService,
     private readonly chatSessionService: ChatSessionService,
     private readonly profileService: ProfileService,
+    private readonly ttsService: TtsService,
   ) {}
 
   async streamChat(
@@ -82,7 +84,27 @@ export class ChatService {
     // 收集助手响应内容
     let assistantContent = '';
 
+    // TTS 相关变量
+    let ttsCleanup: (() => void) | null = null;
+    const isTtsEnabled = !!dto.enableTTS;
+
+    // Debug: Log TTS status
+    console.log(
+      'TTS Debug - enableTTS:',
+      dto.enableTTS,
+      'isTtsEnabled:',
+      isTtsEnabled,
+    );
+
     try {
+      // 初始化 TTS 音频回调 (HTTP API 不需要 startSession)
+      if (isTtsEnabled) {
+        // 注册音频回调
+        ttsCleanup = this.ttsService.onAudio((audioBase64: string) => {
+          this.writeSseEvent(response, 'audio', { audio: audioBase64 });
+        });
+      }
+
       let upstreamResponse: globalThis.Response;
 
       try {
@@ -120,12 +142,27 @@ export class ChatService {
         throw new BadGatewayException(errorText || 'Ark 流式请求失败');
       }
 
-      this.writeSseEvent(response, 'start', { model: ARK_MODEL });
+      this.writeSseEvent(response, 'start', {
+        model: ARK_MODEL,
+        ttsEnabled: isTtsEnabled,
+      });
       assistantContent = await this.pipeArkStream(
         upstreamResponse.body,
         response,
         upstreamController,
+        isTtsEnabled,
       );
+
+      // 在发送 done 之前，先完成 TTS 合成（确保所有音频都发送完毕）
+      if (isTtsEnabled) {
+        try {
+          await this.ttsService.finish();
+        } catch {
+          // 忽略清理错误
+        }
+      }
+
+      // 所有内容（包括音频）都发送完毕后，才发送 done 事件
       this.writeSseEvent(response, 'done', { model: ARK_MODEL });
 
       // 如果传了 sessionId，保存消息到数据库
@@ -163,6 +200,11 @@ export class ChatService {
 
       throw error;
     } finally {
+      // 清理 TTS 回调
+      if (ttsCleanup) {
+        ttsCleanup();
+      }
+
       clearTimeout(timeout);
       requestSignal?.removeEventListener('abort', abortUpstream);
     }
@@ -269,6 +311,7 @@ export class ChatService {
     stream: ReadableStream<Uint8Array>,
     response: Response,
     upstreamController: AbortController,
+    ttsEnabled: boolean = false,
   ): Promise<string> {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
@@ -288,7 +331,7 @@ export class ChatService {
         buffer = segments.pop() ?? '';
 
         for (const segment of segments) {
-          const delta = this.handleSseSegment(segment, response);
+          const delta = this.handleSseSegment(segment, response, ttsEnabled);
           if (delta) {
             collectedContent += delta;
           }
@@ -296,7 +339,7 @@ export class ChatService {
       }
 
       if (buffer.trim()) {
-        const delta = this.handleSseSegment(buffer, response);
+        const delta = this.handleSseSegment(buffer, response, ttsEnabled);
         if (delta) {
           collectedContent += delta;
         }
@@ -309,7 +352,11 @@ export class ChatService {
     return collectedContent;
   }
 
-  private handleSseSegment(segment: string, response: Response): string | null {
+  private async handleSseSegment(
+    segment: string,
+    response: Response,
+    ttsEnabled: boolean = false,
+  ): Promise<string | null> {
     const lines = segment
       .split('\n')
       .map((line) => line.trim())
@@ -339,6 +386,17 @@ export class ChatService {
       if (delta) {
         this.writeSseEvent(response, 'delta', { content: delta });
         collectedDelta += delta;
+
+        // 发送文本到 TTS
+        if (ttsEnabled) {
+          try {
+            // sendText 会累积文本并检测句子边界
+            await this.ttsService.sendText(delta);
+          } catch (ttsError) {
+            // TTS 发送失败不影响主流程
+            console.error('Failed to send text to TTS:', ttsError);
+          }
+        }
       }
     }
 
@@ -347,7 +405,7 @@ export class ChatService {
 
   private writeSseEvent(
     response: Response,
-    event: 'start' | 'delta' | 'done' | 'error',
+    event: 'start' | 'delta' | 'audio' | 'done' | 'error',
     data: Record<string, unknown>,
   ): void {
     response.write(`event: ${event}\n`);

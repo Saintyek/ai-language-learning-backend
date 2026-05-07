@@ -62,4 +62,12 @@ export class ChatStreamRequestDto {
   @IsOptional()
   @IsString()
   sessionId?: string;
+
+  @ApiProperty({
+    required: false,
+    default: false,
+    description: '是否启用 TTS 语音合成',
+  })
+  @IsOptional()
+  enableTTS?: boolean;
 }
