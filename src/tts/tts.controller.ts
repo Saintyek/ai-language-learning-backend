@@ -22,6 +22,11 @@ export class TtsController {
     const signal = req.signal;
 
     try {
+      // 设置 TTS 语言
+      if (dto.language) {
+        this.ttsService.setLanguage(dto.language);
+      }
+
       // 注册音频回调
       const unsubscribeAudio = this.ttsService.onAudio((audio: string) => {
         this.writeSseEvent(res, 'audio', { audio });

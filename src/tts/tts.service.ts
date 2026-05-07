@@ -253,11 +253,14 @@ export class TtsService implements OnModuleDestroy {
       if (response.code === 0 && response.data) {
         // 音频数据
         this.audioCallbacks.forEach((cb) => cb(response.data!));
+      } else if (response.code === 0) {
+        // code === 0 但无数据，表示合成结束（某些情况下 API 返回此格式）
+        console.log('[TTS] Synthesis completed (code 0, no data)');
       } else if (response.code === TTS_ERROR_CODES.SUCCESS) {
-        // 合成结束
+        // 合成结束 (code 20000000)
         console.log('[TTS] Synthesis completed');
       } else {
-        // 错误
+        // 真正的错误
         console.error('[TTS] API error:', response.code, response.message);
         this.handleError(
           `TTS API error: ${response.code} - ${response.message}`,

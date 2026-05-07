@@ -22,4 +22,9 @@ export class TTSStreamRequestDto {
   @IsNumber()
   @Min(16000)
   bitRate?: number = 128000;
+
+  @IsOptional()
+  @IsString()
+  /** 语言代码: cn, jp, us, es */
+  language?: string;
 }
