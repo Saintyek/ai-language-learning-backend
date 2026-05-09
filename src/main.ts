@@ -1,10 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { WsAdapter } from '@nestjs/platform-ws';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // 配置 WebSocket 适配器（使用 ws 库）
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   // 设置全局 API 前缀 /api
   app.setGlobalPrefix('api');

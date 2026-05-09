@@ -8,6 +8,7 @@ import { DigitalHumanModule } from './digital-human/digital-human.module';
 import { ChatModule } from './chat/chat.module';
 import { ProfileModule } from './profile/profile.module';
 import { TranslateModule } from './translate/translate.module';
+import { VoiceModule } from './voice/voice.module';
 
 @Module({
   imports: [
@@ -40,6 +41,8 @@ import { TranslateModule } from './translate/translate.module';
     ProfileModule,
     // 导入翻译模块
     TranslateModule,
+    // 导入语音模块
+    VoiceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
