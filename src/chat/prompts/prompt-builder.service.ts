@@ -53,31 +53,106 @@ export class PromptBuilderService {
    */
   async buildRealtimeSystemRole(options: PromptBuildOptions): Promise<string> {
     const prompts = await this.buildSystemPrompts(options);
+    prompts.push(this.buildRealtimeConversationStylePrompt(options.language));
     if (options.pronunciationAnalysisEnabled) {
       prompts.push(this.buildPronunciationFeedbackPrompt(options.language));
     }
     return prompts.join('\n\n');
   }
 
+  private buildRealtimeConversationStylePrompt(
+    language?: LanguageCode,
+  ): string {
+    const langConfig = language ? languageConfigs[language] : null;
+    const responseLanguage = langConfig?.responseLanguage ?? '当前页面对应语言';
+
+    return `## 实时语音回复规则（最高优先级）
+用户正在进行实时语音练习，你的回复会被直接转换成语音播放。
+
+回复长度要求：
+- 除非用户明确要求“简短回答”，否则每次回复默认保持 2-4 句，不要只回答一句
+- 先回应用户内容，再给出一个自然的追问、示例句或练习引导，帮助用户继续开口
+- 保持口语化，不要写成长段文章，避免一次输出超过 6 句
+- 避免 Markdown 表格、复杂列表和不适合朗读的格式
+
+语音输出语言硬性规则：
+- 当前页面目标语言：${responseLanguage}
+- 你必须理解用户语音的语义，但不要跟随用户本轮使用的语言切换回复语言
+- 你的全部语音回复内容必须使用${responseLanguage}，包括解释、示例、追问、纠错和发音反馈
+- 如果当前页面目标语言不是中文，即使用户用中文提问、要求中文回答或表示看不懂，也禁止使用中文回复、中文解释、中文翻译或中英混排
+- 如果用户使用了非当前页面目标语言，请用${responseLanguage}自然回应，并引导用户回到${responseLanguage}练习
+- 本规则覆盖其他 prompt 中“可以补充中文解释”等宽松要求`;
+  }
+
   private buildPronunciationFeedbackPrompt(language?: LanguageCode): string {
     const langConfig = language ? languageConfigs[language] : null;
     const languageName = langConfig?.name ?? '目标语言';
+    const responseLanguage = langConfig?.responseLanguage ?? languageName;
+    const feedbackLabel = this.getPronunciationFeedbackLabel(language);
+    const clearFeedback = this.getClearPronunciationFeedback(language);
+    const judgmentTerms = this.getPronunciationJudgmentTerms(language);
+    const unclearFeedback = this.getUnclearPronunciationFeedback(language);
 
     return `## 语音发音反馈强制输出规则（最高优先级）
 用户已开启发音分析开关。只要本轮用户是通过语音输入触发回复，你的每一次回复都必须包含发音反馈，不要等待用户主动询问。
 
 强制输出格式：
 1. 先正常回应用户的对话内容，保持语言学习导师身份。
-2. 回复末尾必须另起一行输出：发音反馈：<1-2 句简短反馈>
-3. “发音反馈：”这 5 个字和冒号必须原样出现，不能改写为其他标题，也不能省略。
+2. 回复末尾必须另起一行输出：${feedbackLabel}<1-2 句简短反馈>
+3. “${feedbackLabel}”这个固定标题必须原样出现，不能改写为其他标题，也不能省略。
 
 反馈内容要求：
-- 无论本轮发音好坏，都必须输出发音反馈；发音较好时给出正向反馈，例如“整体清楚，可以继续保持语速和重音”
+- 无论本轮发音好坏，都必须输出发音反馈；发音较好时给出${responseLanguage}正向反馈，例如“${clearFeedback}”
 - 基于 ASR 可理解度、用户表达是否自然、是否可能存在误读来判断，不要声称你做了专业音频级或音素级评测
-- 必须明确告诉用户本轮发音是“整体清楚”还是“需要注意”
+- 必须明确告诉用户本轮发音状态，使用类似${judgmentTerms}的${responseLanguage}表达
 - 如果能判断出可能的误读词或不自然表达，给出${languageName}的正确读法或更自然说法
 - 发音反馈保持 1-2 句话，不要输出分数，不要使用独立卡片格式
-- 如果本轮语音没有听清或无法充分判断，不要编造发音问题，也必须输出“发音反馈：本轮没有完全听清，建议再说一遍，我会继续帮你判断。”`;
+- 发音反馈标题和反馈内容都必须使用${responseLanguage}，不要因为用户本轮说中文而切换到中文
+- 如果本轮语音没有听清或无法充分判断，不要编造发音问题，也必须输出“${feedbackLabel}${unclearFeedback}”`;
+  }
+
+  private getPronunciationFeedbackLabel(language?: LanguageCode): string {
+    const labels: Record<LanguageCode, string> = {
+      cn: '发音反馈：',
+      jp: '発音フィードバック：',
+      es: 'Comentarios de pronunciación: ',
+      us: 'Pronunciation feedback: ',
+    };
+
+    return language ? labels[language] : 'Pronunciation feedback: ';
+  }
+
+  private getClearPronunciationFeedback(language?: LanguageCode): string {
+    const feedback: Record<LanguageCode, string> = {
+      cn: '整体清楚，可以继续保持语速和重音。',
+      jp: '全体的にははっきりしています。今のスピードとイントネーションを続けましょう。',
+      es: 'En general se entiende con claridad. Mantén este ritmo y la entonación.',
+      us: 'Overall, it was clear. Keep this pace and stress pattern.',
+    };
+
+    return language ? feedback[language] : feedback.us;
+  }
+
+  private getPronunciationJudgmentTerms(language?: LanguageCode): string {
+    const terms: Record<LanguageCode, string> = {
+      cn: '“整体清楚”或“需要注意”',
+      jp: '「全体的にははっきりしています」または「注意が必要です」',
+      es: '“en general se entiende con claridad” o “hay que prestar atención”',
+      us: '"overall clear" or "needs attention"',
+    };
+
+    return language ? terms[language] : terms.us;
+  }
+
+  private getUnclearPronunciationFeedback(language?: LanguageCode): string {
+    const feedback: Record<LanguageCode, string> = {
+      cn: '本轮没有完全听清，建议再说一遍，我会继续帮你判断。',
+      jp: '今回は十分に聞き取れませんでした。もう一度言ってください。続けて確認します。',
+      es: 'No pude escuchar esta intervención con suficiente claridad. Repítela una vez más y seguiré ayudándote a revisarla.',
+      us: "I couldn't hear this turn clearly enough. Please say it again, and I'll keep helping you check it.",
+    };
+
+    return language ? feedback[language] : feedback.us;
   }
 
   private async buildProfilePromptsSafely(
