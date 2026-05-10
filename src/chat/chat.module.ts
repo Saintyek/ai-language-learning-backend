@@ -7,12 +7,14 @@ import { ChatSession, ChatMessage } from './chat-session.entity';
 import { ProfileModule } from '../profile/profile.module';
 import { TtsModule } from '../tts/tts.module';
 import { PromptBuilderService } from './prompts/prompt-builder.service';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([ChatSession, ChatMessage]),
     ProfileModule,
     TtsModule,
+    AuthModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatSessionService, PromptBuilderService],

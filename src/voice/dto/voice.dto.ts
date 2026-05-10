@@ -11,6 +11,10 @@ import { IsString, IsOptional, IsIn, IsBase64 } from 'class-validator';
 export class StartSessionDto {
   @IsString()
   @IsOptional()
+  token?: string;
+
+  @IsString()
+  @IsOptional()
   @IsIn(['cn', 'jp', 'us', 'es'], {
     message: 'language must be one of: cn, jp, us, es',
   })

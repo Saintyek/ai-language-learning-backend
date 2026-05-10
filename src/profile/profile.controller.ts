@@ -7,6 +7,7 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,6 +17,9 @@ import {
 } from '@nestjs/swagger';
 import { ProfileService } from './profile.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthenticatedUser } from '../auth/auth.types';
 
 /**
  * 语言档案控制器
@@ -23,6 +27,7 @@ import { CreateProfileDto } from './dto/create-profile.dto';
  */
 @ApiTags('profile')
 @Controller('profile')
+@UseGuards(JwtAuthGuard)
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
@@ -36,10 +41,11 @@ export class ProfileController {
     description: '获取用户指定语言的档案信息，如果不存在则返回 null',
   })
   @ApiOkResponse({ description: '返回语言档案信息，不存在时 data 为 null' })
-  async getProfile(@Param('language') language: string) {
-    // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
-    const tempUserId = 1;
-    const profile = await this.profileService.getProfile(tempUserId, language);
+  async getProfile(
+    @Param('language') language: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const profile = await this.profileService.getProfile(user.id, language);
     return {
       message: '获取成功',
       data: profile,
@@ -61,11 +67,10 @@ export class ProfileController {
   async upsertProfile(
     @Param('language') language: string,
     @Body() createProfileDto: CreateProfileDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
-    const tempUserId = 1;
     const profile = await this.profileService.upsertProfile(
-      tempUserId,
+      user.id,
       language,
       createProfileDto,
     );
@@ -87,10 +92,11 @@ export class ProfileController {
   })
   @ApiOkResponse({ description: '删除成功' })
   @ApiResponse({ status: 404, description: '未找到该语言的档案' })
-  async deleteProfile(@Param('language') language: string) {
-    // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
-    const tempUserId = 1;
-    await this.profileService.deleteProfile(tempUserId, language);
+  async deleteProfile(
+    @Param('language') language: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.profileService.deleteProfile(user.id, language);
     return {
       message: '删除成功',
     };

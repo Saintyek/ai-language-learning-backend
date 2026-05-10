@@ -12,6 +12,7 @@ import {
   Query,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import {
@@ -28,9 +29,13 @@ import { ChatService } from './chat.service';
 import { ChatStreamRequestDto } from './dto/chat-stream-request.dto';
 import { ChatSessionService } from './chat-session.service';
 import { GetSessionsQueryDto } from './dto/get-sessions-query.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthenticatedUser } from '../auth/auth.types';
 
 @ApiTags('chat')
 @Controller('chat')
+@UseGuards(JwtAuthGuard)
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
@@ -57,6 +62,7 @@ export class ChatController {
     @Body() dto: ChatStreamRequestDto,
     @Req() request: Request,
     @Res() response: Response,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     response.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     response.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -74,7 +80,12 @@ export class ChatController {
     request.on('aborted', abortStream);
 
     try {
-      await this.chatService.streamChat(dto, response, abortController.signal);
+      await this.chatService.streamChat(
+        dto,
+        response,
+        user.id,
+        abortController.signal,
+      );
     } finally {
       if (!response.writableEnded) {
         response.end();
@@ -93,11 +104,12 @@ export class ChatController {
   })
   @ApiQuery({ type: GetSessionsQueryDto })
   @ApiResponse({ status: 200, description: '返回会话列表' })
-  async getSessions(@Query() query: GetSessionsQueryDto) {
-    // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
-    const tempUserId = 1;
+  async getSessions(
+    @Query() query: GetSessionsQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     const result = await this.chatSessionService.getSessionList(
-      tempUserId,
+      user.id,
       query,
     );
     return {
@@ -123,12 +135,13 @@ export class ChatController {
   @ApiParam({ name: 'id', type: String, description: '会话ID（UUID）' })
   @ApiResponse({ status: 200, description: '返回会话详情' })
   @ApiResponse({ status: 404, description: '会话不存在' })
-  async getSessionDetail(@Param('id') id: string) {
-    // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
-    const tempUserId = 1;
+  async getSessionDetail(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     const session = await this.chatSessionService.getSessionDetail(
       id,
-      tempUserId,
+      user.id,
     );
 
     if (!session) {
@@ -169,11 +182,10 @@ export class ChatController {
       scenario?: string;
       language?: string;
     },
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
-    const tempUserId = 1;
     const session = await this.chatSessionService.createSession(
-      tempUserId,
+      user.id,
       body.title,
       body.scenario,
       body.language,
@@ -206,12 +218,11 @@ export class ChatController {
   async updateSessionTitle(
     @Param('id') id: string,
     @Body() body: { title: string },
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
-    const tempUserId = 1;
     const session = await this.chatSessionService.updateSessionTitle(
       id,
-      tempUserId,
+      user.id,
       body.title,
     );
 
@@ -241,10 +252,11 @@ export class ChatController {
   @ApiParam({ name: 'id', type: String, description: '会话ID（UUID）' })
   @ApiResponse({ status: 200, description: '会话删除成功' })
   @ApiResponse({ status: 404, description: '会话不存在' })
-  async deleteSession(@Param('id') id: string) {
-    // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
-    const tempUserId = 1;
-    const success = await this.chatSessionService.deleteSession(id, tempUserId);
+  async deleteSession(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const success = await this.chatSessionService.deleteSession(id, user.id);
 
     if (!success) {
       return {

@@ -38,6 +38,7 @@ interface StartSessionConfig {
 }
 
 interface VoiceSessionOptions {
+  userId?: number;
   language?: LanguageCode;
   scenario?: string;
 }
@@ -130,8 +131,9 @@ export class VoiceService implements OnModuleDestroy {
       'X-Api-App-Key': this.config.appKey,
     };
 
-    const { language = 'cn', scenario } = options;
+    const { userId, language = 'cn', scenario } = options;
     const systemRole = await this.promptBuilderService.buildRealtimeSystemRole({
+      userId,
       language,
       scenario,
     });

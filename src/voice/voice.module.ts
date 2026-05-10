@@ -10,9 +10,10 @@ import { VoiceGateway } from './voice.gateway';
 import { VoiceService } from './voice.service';
 import { ProfileModule } from '../profile/profile.module';
 import { PromptBuilderService } from '../chat/prompts/prompt-builder.service';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [ProfileModule],
+  imports: [ProfileModule, AuthModule],
   providers: [VoiceGateway, VoiceService, PromptBuilderService],
   exports: [VoiceService],
 })

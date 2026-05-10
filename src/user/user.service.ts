@@ -9,6 +9,12 @@ import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { AuthService } from '../auth/auth.service';
+
+interface AuthResponse {
+  token: string;
+  userInfo: Omit<User, 'password'>;
+}
 
 /**
  * 用户服务
@@ -19,6 +25,7 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private readonly authService: AuthService,
   ) {}
 
   /**
@@ -26,7 +33,7 @@ export class UserService {
    * @param registerDto 注册数据
    * @returns 创建的用户信息（不含密码）
    */
-  async register(registerDto: RegisterDto): Promise<Omit<User, 'password'>> {
+  async register(registerDto: RegisterDto): Promise<AuthResponse> {
     const { username, email, password } = registerDto;
 
     // 检查用户名是否已存在
@@ -61,7 +68,13 @@ export class UserService {
 
     // 返回用户信息，不包含密码
     const { password: _, ...result } = savedUser;
-    return result;
+    return {
+      token: this.authService.signUserToken({
+        id: result.id,
+        email: result.email,
+      }),
+      userInfo: result,
+    };
   }
 
   /**
@@ -69,7 +82,7 @@ export class UserService {
    * @param loginDto 登录数据
    * @returns 用户信息（不含密码）
    */
-  async login(loginDto: LoginDto): Promise<Omit<User, 'password'>> {
+  async login(loginDto: LoginDto): Promise<AuthResponse> {
     const { email, password } = loginDto;
 
     // 根据邮箱查找用户
@@ -90,6 +103,12 @@ export class UserService {
 
     // 返回用户信息，不包含密码
     const { password: _, ...result } = user;
-    return result;
+    return {
+      token: this.authService.signUserToken({
+        id: result.id,
+        email: result.email,
+      }),
+      userInfo: result,
+    };
   }
 }

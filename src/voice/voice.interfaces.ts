@@ -23,6 +23,8 @@ export interface BaseClientMessage {
 /** 开始会话消息 */
 export interface StartSessionMessage extends BaseClientMessage {
   type: 'start_session';
+  /** 登录令牌，用于语音 WebSocket 会话绑定真实用户 */
+  token?: string;
   /** 学习语言代码: cn, jp, us, es */
   language?: string;
   /** 场景标识，格式为 "一级场景/二级场景" */

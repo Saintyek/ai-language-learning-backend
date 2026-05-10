@@ -30,10 +30,13 @@ export class UserController {
   @ApiResponse({ status: 400, description: '请求参数验证失败' })
   @ApiResponse({ status: 409, description: '用户名或邮箱已存在' })
   async register(@Body() registerDto: RegisterDto) {
-    const user = await this.userService.register(registerDto);
+    const authData = await this.userService.register(registerDto);
     return {
       message: '注册成功',
-      data: user,
+      data: {
+        ...authData.userInfo,
+        token: authData.token,
+      },
     };
   }
 
@@ -48,10 +51,13 @@ export class UserController {
   @ApiResponse({ status: 400, description: '请求参数验证失败' })
   @ApiResponse({ status: 401, description: '邮箱或密码错误' })
   async login(@Body() loginDto: LoginDto) {
-    const user = await this.userService.login(loginDto);
+    const authData = await this.userService.login(loginDto);
     return {
       message: '登录成功',
-      data: user,
+      data: {
+        ...authData.userInfo,
+        token: authData.token,
+      },
     };
   }
 }

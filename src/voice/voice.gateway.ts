@@ -25,6 +25,7 @@ import type {
 } from './voice.interfaces';
 import { StartSessionDto, AudioDto, TextDto } from './dto';
 import type { LanguageCode } from '../chat/prompts';
+import { AuthService } from '../auth/auth.service';
 
 @WebSocketGateway({
   path: '/ws/voice',
@@ -38,7 +39,10 @@ export class VoiceGateway
   private readonly logger = new Logger(VoiceGateway.name);
   private clients: Map<WebSocket, string> = new Map();
 
-  constructor(private readonly voiceService: VoiceService) {}
+  constructor(
+    private readonly voiceService: VoiceService,
+    private readonly authService: AuthService,
+  ) {}
 
   afterInit(server: Server) {
     this.logger.log('Voice WebSocket Gateway initialized');
@@ -49,9 +53,9 @@ export class VoiceGateway
     this.clients.set(client, clientId);
     this.logger.log(`Client connected: ${clientId}`);
 
-    // 添加原始消息监听器来调试
+    // 只记录消息摘要，避免 start_session 中的登录 token 泄露到日志。
     client.on('message', (data: Buffer) => {
-      this.logger.debug(`Raw message received: ${data.toString()}`);
+      this.logger.debug(`Raw message received: ${data.length} bytes`);
     });
   }
 
@@ -73,10 +77,11 @@ export class VoiceGateway
     payload: StartSessionMessage,
   ): Promise<void> {
     this.logger.log(
-      `handleStartSession called with payload: ${JSON.stringify(payload)}`,
+      `handleStartSession called with payload: ${JSON.stringify(this.redactStartSessionPayload(payload))}`,
     );
     // 验证 DTO
     const dto = new StartSessionDto();
+    dto.token = payload.token;
     dto.language = payload.language;
     dto.scenario = payload.scenario;
     const errors = await validate(dto);
@@ -96,6 +101,10 @@ export class VoiceGateway
     this.clients.set(client, sessionId);
     const language = (payload.language || 'cn') as LanguageCode;
     const scenario = payload.scenario;
+    const user = this.getAuthenticatedUser(client, payload.token);
+    if (!user) {
+      return;
+    }
 
     this.logger.log(
       `Starting session ${sessionId} with language: ${language}, scenario: ${scenario ?? 'none'}`,
@@ -105,7 +114,7 @@ export class VoiceGateway
       await this.voiceService.connectToRealtimeApi(
         sessionId,
         (event: ServerEvent) => this.sendEventToClient(client, event),
-        { language, scenario },
+        { userId: user.id, language, scenario },
       );
 
       // 发送连接成功事件
@@ -242,5 +251,37 @@ export class VoiceGateway
    */
   private generateClientId(): string {
     return `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  }
+
+  private redactStartSessionPayload(payload: StartSessionMessage) {
+    return {
+      ...payload,
+      token: payload.token ? '[REDACTED]' : undefined,
+    };
+  }
+
+  private getAuthenticatedUser(client: WebSocket, token?: string) {
+    if (!token) {
+      this.sendMessage(client, {
+        type: 'error',
+        code: 'UNAUTHORIZED',
+        message: '请先登录后再开始语音会话',
+        retryable: false,
+      });
+      return null;
+    }
+
+    try {
+      return this.authService.verifyToken(token);
+    } catch (error) {
+      this.logger.warn(`Voice auth failed: ${error}`);
+      this.sendMessage(client, {
+        type: 'error',
+        code: 'UNAUTHORIZED',
+        message: '登录状态已失效，请重新登录',
+        retryable: false,
+      });
+      return null;
+    }
   }
 }

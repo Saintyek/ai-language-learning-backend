@@ -13,11 +13,10 @@ import {
 import type { LanguageCode } from './types';
 
 interface PromptBuildOptions {
+  userId?: number;
   language?: LanguageCode;
   scenario?: string;
 }
-
-const TEMP_USER_ID = 1;
 
 @Injectable()
 export class PromptBuilderService {
@@ -29,14 +28,17 @@ export class PromptBuilderService {
    * 统一构建系统提示词片段，保证文本聊天和实时语音使用同一套约束来源。
    */
   async buildSystemPrompts(options: PromptBuildOptions): Promise<string[]> {
-    const { language, scenario } = options;
+    const { userId, language, scenario } = options;
     const prompts: string[] = [];
 
     if (!language) {
       return prompts;
     }
 
-    const profilePrompts = await this.buildProfilePromptsSafely(language);
+    const profilePrompts = await this.buildProfilePromptsSafely(
+      userId,
+      language,
+    );
     prompts.push(...profilePrompts);
 
     const scenePrompt = this.buildScenePromptSafely(scenario, language);
@@ -53,10 +55,17 @@ export class PromptBuilderService {
     return prompts.join('\n\n');
   }
 
-  private async buildProfilePromptsSafely(language: LanguageCode): Promise<string[]> {
+  private async buildProfilePromptsSafely(
+    userId: number | undefined,
+    language: LanguageCode,
+  ): Promise<string[]> {
+    if (!userId) {
+      return [];
+    }
+
     try {
-      // 当前项目暂未接入认证用户，沿用文本聊天既有的临时用户 ID。
-      const profile = await this.profileService.getProfile(TEMP_USER_ID, language);
+      // 使用认证上下文中的真实用户 ID，避免不同用户读取到同一份学习档案。
+      const profile = await this.profileService.getProfile(userId, language);
       if (!profile) {
         return [];
       }

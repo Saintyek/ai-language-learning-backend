@@ -51,6 +51,7 @@ export class ChatService {
   async streamChat(
     dto: ChatStreamRequestDto,
     response: Response,
+    userId: number,
     requestSignal?: AbortSignal,
   ): Promise<void> {
     const apiKey = this.configService.get<string>('ARK_API_KEY');
@@ -60,7 +61,7 @@ export class ChatService {
     }
 
     // 注入场景 prompt（包含档案提示词）
-    const messages = await this.injectScenePrompt(dto);
+    const messages = await this.injectScenePrompt(dto, userId);
 
     const upstreamController = new AbortController();
     const timeout = setTimeout(() => {
@@ -250,8 +251,10 @@ export class ChatService {
    */
   private async injectScenePrompt(
     dto: ChatStreamRequestDto,
+    userId: number,
   ): Promise<ChatMessage[]> {
     const systemPrompts = await this.promptBuilderService.buildSystemPrompts({
+      userId,
       language: dto.language,
       scenario: dto.scenario,
     });
