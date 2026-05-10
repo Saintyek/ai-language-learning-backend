@@ -39,8 +39,11 @@ describe('PromptBuilderService', () => {
     });
 
     expect(disabledPrompt).not.toContain('语音发音轻量反馈');
-    expect(enabledPrompt).toContain('语音发音轻量反馈');
-    expect(enabledPrompt).toContain('以“发音反馈：”开头');
+    expect(enabledPrompt).toContain('语音发音反馈强制输出规则');
+    expect(enabledPrompt).toContain('你的每一次回复都必须包含发音反馈');
+    expect(enabledPrompt).toContain('不要等待用户主动询问');
+    expect(enabledPrompt).toContain('发音反馈：<1-2 句简短反馈>');
+    expect(enabledPrompt).toContain('无论本轮发音好坏，都必须输出发音反馈');
     expect(enabledPrompt).toContain('不要声称你做了专业音频级或音素级评测');
   });
 });
