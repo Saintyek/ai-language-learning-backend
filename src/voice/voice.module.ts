@@ -8,9 +8,12 @@
 import { Module } from '@nestjs/common';
 import { VoiceGateway } from './voice.gateway';
 import { VoiceService } from './voice.service';
+import { ProfileModule } from '../profile/profile.module';
+import { PromptBuilderService } from '../chat/prompts/prompt-builder.service';
 
 @Module({
-  providers: [VoiceGateway, VoiceService],
+  imports: [ProfileModule],
+  providers: [VoiceGateway, VoiceService, PromptBuilderService],
   exports: [VoiceService],
 })
 export class VoiceModule {}

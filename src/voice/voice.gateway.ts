@@ -24,6 +24,7 @@ import type {
   TextMessage,
 } from './voice.interfaces';
 import { StartSessionDto, AudioDto, TextDto } from './dto';
+import type { LanguageCode } from '../chat/prompts';
 
 @WebSocketGateway({
   path: '/ws/voice',
@@ -77,6 +78,7 @@ export class VoiceGateway
     // 验证 DTO
     const dto = new StartSessionDto();
     dto.language = payload.language;
+    dto.scenario = payload.scenario;
     const errors = await validate(dto);
     if (errors.length > 0) {
       this.sendMessage(client, {
@@ -92,15 +94,18 @@ export class VoiceGateway
 
     const sessionId = this.clients.get(client) || this.generateClientId();
     this.clients.set(client, sessionId);
-    const language = payload.language || 'cn';
+    const language = (payload.language || 'cn') as LanguageCode;
+    const scenario = payload.scenario;
 
-    this.logger.log(`Starting session ${sessionId} with language: ${language}`);
+    this.logger.log(
+      `Starting session ${sessionId} with language: ${language}, scenario: ${scenario ?? 'none'}`,
+    );
 
     try {
       await this.voiceService.connectToRealtimeApi(
         sessionId,
         (event: ServerEvent) => this.sendEventToClient(client, event),
-        language,
+        { language, scenario },
       );
 
       // 发送连接成功事件

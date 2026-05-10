@@ -28,12 +28,18 @@ import {
   decodeServerFrame,
   parseServerEvent,
 } from './binary-protocol';
+import type { LanguageCode } from '../chat/prompts';
+import { PromptBuilderService } from '../chat/prompts/prompt-builder.service';
 
 /** StartSession 请求配置 */
 interface StartSessionConfig {
-  language?: string;
   bot_name?: string;
   system_role?: string;
+}
+
+interface VoiceSessionOptions {
+  language?: LanguageCode;
+  scenario?: string;
 }
 
 /** 服务端响应事件 */
@@ -67,7 +73,10 @@ export class VoiceService implements OnModuleDestroy {
   // 与 dialogIds 不是一个东西
   private protocolSessionIds: Map<string, string> = new Map();
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly promptBuilderService: PromptBuilderService,
+  ) {
     const appId = this.configService.get<string>('VOLCENGINE_VOICE_APP_ID');
     const accessKey = this.configService.get<string>(
       'VOLCENGINE_VOICE_ACCESS_KEY',
@@ -107,7 +116,7 @@ export class VoiceService implements OnModuleDestroy {
   async connectToRealtimeApi(
     sessionId: string,
     onEvent: (event: ServerEvent) => void,
-    language: string = 'cn',
+    options: VoiceSessionOptions = {},
   ): Promise<void> {
     if (this.connections.has(sessionId)) {
       this.logger.warn(`Session ${sessionId} already connected`);
@@ -120,6 +129,12 @@ export class VoiceService implements OnModuleDestroy {
       'X-Api-Resource-Id': this.config.resourceId,
       'X-Api-App-Key': this.config.appKey,
     };
+
+    const { language = 'cn', scenario } = options;
+    const systemRole = await this.promptBuilderService.buildRealtimeSystemRole({
+      language,
+      scenario,
+    });
 
     return new Promise((resolve, reject) => {
       try {
@@ -148,9 +163,8 @@ export class VoiceService implements OnModuleDestroy {
 
           // 发送 StartSession 事件
           const startSessionConfig: StartSessionConfig = {
-            language,
             bot_name: 'AI助手',
-            system_role: '你是一个友好的语言学习助手，帮助用户练习语言。',
+            system_role: systemRole,
           };
 
           // TTS 配置说明（关键修复 2026-05-09）：

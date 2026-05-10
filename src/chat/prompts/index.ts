@@ -5,6 +5,7 @@ export * from './builder';
 export * from './scenes';
 export * from './profile-template';
 export * from './profile-builder';
+export * from './prompt-builder.service';
 
 import { allScenePrompts } from './scenes';
 import { buildScenePrompt } from './builder';

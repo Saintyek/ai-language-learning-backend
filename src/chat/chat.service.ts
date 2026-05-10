@@ -7,14 +7,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { ChatStreamRequestDto } from './dto/chat-stream-request.dto';
-import {
-  getScenePrompt,
-  LanguageCode,
-  buildProfilePrompt,
-  ProfileData,
-} from './prompts/index';
+import { PromptBuilderService } from './prompts/prompt-builder.service';
 import { ChatSessionService } from './chat-session.service';
-import { ProfileService } from '../profile/profile.service';
 import { TtsService } from '../tts/tts.service';
 
 interface ArkStreamChunkChoiceDelta {
@@ -50,8 +44,8 @@ export class ChatService {
   constructor(
     private readonly configService: ConfigService,
     private readonly chatSessionService: ChatSessionService,
-    private readonly profileService: ProfileService,
     private readonly ttsService: TtsService,
+    private readonly promptBuilderService: PromptBuilderService,
   ) {}
 
   async streamChat(
@@ -257,50 +251,17 @@ export class ChatService {
   private async injectScenePrompt(
     dto: ChatStreamRequestDto,
   ): Promise<ChatMessage[]> {
-    const messages: ChatMessage[] = [];
+    const systemPrompts = await this.promptBuilderService.buildSystemPrompts({
+      language: dto.language,
+      scenario: dto.scenario,
+    });
 
-    // 1. 最高优先级：学习档案提示词
-    if (dto.language) {
-      try {
-        // TODO: 从认证中间件获取用户ID，暂时使用临时用户ID
-        const tempUserId = 1;
-        const profile = await this.profileService.getProfile(
-          tempUserId,
-          dto.language,
-        );
-        if (profile) {
-          const profilePrompt = buildProfilePrompt(
-            {
-              level: profile.level as ProfileData['level'],
-              motivations: profile.motivations,
-              goals: profile.goals,
-              dailyTime: profile.dailyTime,
-            },
-            dto.language,
-          );
-          messages.push({
-            role: 'system',
-            content: profilePrompt,
-          });
-        }
-      } catch (error) {
-        // 档案获取失败不应影响对话，记录日志后继续
-        console.error('Failed to get profile for prompt injection:', error);
-      }
-    }
+    const messages: ChatMessage[] = systemPrompts.map((content) => ({
+      role: 'system',
+      content,
+    }));
 
-    // 2. 次优先级：场景提示词
-    if (dto.scenario && dto.language) {
-      const scenePrompt = getScenePrompt(dto.scenario, dto.language);
-      if (scenePrompt) {
-        messages.push({
-          role: 'system',
-          content: scenePrompt,
-        });
-      }
-    }
-
-    // 3. 用户消息
+    // 用户消息保持在系统约束之后，避免覆盖前置 prompt。
     for (const msg of dto.messages) {
       messages.push({
         role: msg.role,

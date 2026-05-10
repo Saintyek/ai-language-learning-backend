@@ -15,6 +15,10 @@ export class StartSessionDto {
     message: 'language must be one of: cn, jp, us, es',
   })
   language?: string;
+
+  @IsString()
+  @IsOptional()
+  scenario?: string;
 }
 
 /** 音频数据 DTO */

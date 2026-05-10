@@ -25,6 +25,8 @@ export interface StartSessionMessage extends BaseClientMessage {
   type: 'start_session';
   /** 学习语言代码: cn, jp, us, es */
   language?: string;
+  /** 场景标识，格式为 "一级场景/二级场景" */
+  scenario?: string;
 }
 
 /** 结束会话消息 */
