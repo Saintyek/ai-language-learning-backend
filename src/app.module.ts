@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
-import { DigitalHumanModule } from './digital-human/digital-human.module';
 import { ChatModule } from './chat/chat.module';
 import { ProfileModule } from './profile/profile.module';
 import { TranslateModule } from './translate/translate.module';
@@ -33,8 +32,6 @@ import { VoiceModule } from './voice/voice.module';
     }),
     // 导入用户模块
     UserModule,
-    // 导入数字人模块
-    DigitalHumanModule,
     // 导入聊天模块
     ChatModule,
     // 导入语言档案模块
