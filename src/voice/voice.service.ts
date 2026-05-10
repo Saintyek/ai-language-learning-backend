@@ -153,20 +153,52 @@ export class VoiceService implements OnModuleDestroy {
             system_role: '你是一个友好的语言学习助手，帮助用户练习语言。',
           };
 
-          // TTS 配置说明：
-          // 不显式声明 audio_config，火山默认返回 OGG/Opus，浏览器
-          // decodeAudioData 可正确解码（Chrome/Edge/Firefox 均支持）。
-          // 若要改为裸 PCM 输出，需同步改造前端 audioPlayer 直接构造 AudioBuffer。
+          // TTS 配置说明（关键修复 2026-05-09）：
+          // 火山默认返回 OGG/Opus 流式分片，每个 TTSResponse 帧是分片，但 OGG
+          // 容器只有首帧带 header，后续分片单独 decodeAudioData 必然抛
+          // EncodingError: Unable to decode audio data。
+          // 方案：显式声明 tts.audio_config 为 pcm_s16le/24kHz/单声道，
+          // 前端直接构造 AudioBuffer 即可（无需 decodeAudioData）。
+          //
+          // ASR 配置说明（关键修复 2026-05-09）：
+          // 火山 RealtimeAPI 默认期望 Opus 编码的音频上传，而前端通过
+          // AudioWorklet 输出的是裸 PCM (16kHz/Int16/单声道/小端序)。
+          // 必须在 StartSession 中显式声明 asr.audio_info.format=pcm，
+          // 否则火山会按 Opus 解码失败 → 无 ASR 结果 → 无 Chat → 无 TTS。
+          //
+          // Push-to-Talk 配置（关键修复 2026-05-09）：
+          // 根据火山官方文档（https://www.volcengine.com/docs/6561/1594356）:
+          //   - enable_custom_vad: true 关闭服务端自动 VAD 判停（默认 false）
+          //   - end_smooth_window_ms: 服务端 VAD 判停静音时长，默认 1500ms，最大 50000ms
+          // 两者均为 StartSession payload 顶层字段（与 asr/dialog/tts 同级）。
+          // 同时设置：enable_custom_vad 为主控（必须等 EndASR），end_smooth_window_ms 兜底
+          // （万一服务端忽略 enable_custom_vad，把判停延长到 50s 也基本不会误触发）。
+          //
           // 注意：StartSession 是 Session 级事件，必须在协议头携带 session id
           const startSessionFrame = encodeClientEvent(
             ClientEventId.StartSession,
             {
+              // 顶层 push-to-talk 控制字段
+              enable_custom_vad: true,
+              end_smooth_window_ms: 50000,
+              asr: {
+                audio_info: {
+                  channel: 1,
+                  format: 'pcm',
+                  sample_rate: 16000,
+                },
+              },
+              // TTS 输出格式：pcm_s16le 24kHz 单声道，前端直接构造 AudioBuffer
+              tts: {
+                audio_config: {
+                  channel: 1,
+                  format: 'pcm_s16le',
+                  sample_rate: 24000,
+                },
+              },
               dialog: {
                 bot_name: startSessionConfig.bot_name,
                 system_role: startSessionConfig.system_role,
-                extra: {
-                  input_mod: 'push_to_talk', // 麦克风按键模式
-                },
               },
             },
             protocolSessionId,
@@ -345,6 +377,10 @@ export class VoiceService implements OnModuleDestroy {
       case ServerEventId.DialogCommonError:
         // 错误
         const errorData = data as ErrorData;
+        // 把火山报错完整打出来，方便用户在后端日志直接看到错误原因
+        this.logger.error(
+          `[DialogCommonError] session=${sessionId} ${JSON.stringify(errorData)}`,
+        );
         onEvent({
           type: 'error',
           code: errorData.status_code || 'UNKNOWN',
@@ -354,8 +390,10 @@ export class VoiceService implements OnModuleDestroy {
         break;
 
       default:
-        this.logger.debug(
-          `Unhandled event: ${eventId}, data: ${JSON.stringify(data)}`,
+        // 升级为 warn 级别，避免被 NestJS 默认 LogLevel 过滤掉
+        // 这样如果火山下发了我们没识别的事件，能立刻看到
+        this.logger.warn(
+          `[Unhandled] eventId=${eventId} data=${JSON.stringify(data)}`,
         );
     }
   }
@@ -430,6 +468,12 @@ export class VoiceService implements OnModuleDestroy {
       this.logger.warn(`No active connection for session: ${sessionId}`);
       return false;
     }
+
+    // 链路日志：观察是否真的下发了 EndASR
+    const uploadedBytes = this.uploadBytesCounter.get(sessionId) ?? 0;
+    this.logger.log(
+      `[EndASR] session=${sessionId} totalUploadedBytes=${uploadedBytes}`,
+    );
 
     // EndASR 是 Session 级事件，必须带 protocolSessionId
     const endASRFrame = encodeClientEvent(
