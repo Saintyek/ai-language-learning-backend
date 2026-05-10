@@ -41,6 +41,7 @@ interface VoiceSessionOptions {
   userId?: number;
   language?: LanguageCode;
   scenario?: string;
+  pronunciationAnalysisEnabled?: boolean;
 }
 
 /** 服务端响应事件 */
@@ -131,11 +132,17 @@ export class VoiceService implements OnModuleDestroy {
       'X-Api-App-Key': this.config.appKey,
     };
 
-    const { userId, language = 'cn', scenario } = options;
+    const {
+      userId,
+      language = 'cn',
+      scenario,
+      pronunciationAnalysisEnabled = false,
+    } = options;
     const systemRole = await this.promptBuilderService.buildRealtimeSystemRole({
       userId,
       language,
       scenario,
+      pronunciationAnalysisEnabled,
     });
 
     return new Promise((resolve, reject) => {

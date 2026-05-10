@@ -16,6 +16,7 @@ interface PromptBuildOptions {
   userId?: number;
   language?: LanguageCode;
   scenario?: string;
+  pronunciationAnalysisEnabled?: boolean;
 }
 
 @Injectable()
@@ -52,7 +53,25 @@ export class PromptBuilderService {
    */
   async buildRealtimeSystemRole(options: PromptBuildOptions): Promise<string> {
     const prompts = await this.buildSystemPrompts(options);
+    if (options.pronunciationAnalysisEnabled) {
+      prompts.push(this.buildPronunciationFeedbackPrompt(options.language));
+    }
     return prompts.join('\n\n');
+  }
+
+  private buildPronunciationFeedbackPrompt(language?: LanguageCode): string {
+    const langConfig = language ? languageConfigs[language] : null;
+    const languageName = langConfig?.name ?? '目标语言';
+
+    return `## 语音发音轻量反馈（最高优先级）
+用户已开启发音分析开关。每次用户通过语音输入后，你的回复都必须包含一段以“发音反馈：”开头的简短反馈。
+
+反馈要求：
+- 基于 ASR 可理解度、用户表达是否自然、是否可能存在误读来判断，不要声称你做了专业音频级或音素级评测
+- 必须明确告诉用户本轮发音是“整体清楚”还是“需要注意”
+- 如果能判断出可能的误读词或不自然表达，给出${languageName}的正确读法或更自然说法
+- 发音反馈保持 1-2 句话，不要输出分数，不要使用独立卡片格式
+- 如果本轮语音没有听清，不要编造发音问题，只提醒用户再说一遍`;
   }
 
   private async buildProfilePromptsSafely(

@@ -5,7 +5,13 @@
  * WebSocket 消息数据传输对象
  */
 
-import { IsString, IsOptional, IsIn, IsBase64 } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsIn,
+  IsBase64,
+  IsBoolean,
+} from 'class-validator';
 
 /** 开始会话 DTO */
 export class StartSessionDto {
@@ -23,6 +29,10 @@ export class StartSessionDto {
   @IsString()
   @IsOptional()
   scenario?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  pronunciationAnalysisEnabled?: boolean;
 }
 
 /** 音频数据 DTO */

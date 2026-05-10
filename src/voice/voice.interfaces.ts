@@ -29,6 +29,8 @@ export interface StartSessionMessage extends BaseClientMessage {
   language?: string;
   /** 场景标识，格式为 "一级场景/二级场景" */
   scenario?: string;
+  /** 是否在 AI 回复中启用轻量发音反馈 */
+  pronunciationAnalysisEnabled?: boolean;
 }
 
 /** 结束会话消息 */
@@ -65,7 +67,6 @@ export type ServerEventType =
   | 'chat'
   | 'tts'
   | 'tts_ended'
-  | 'pronunciation'
   | 'error'
   | 'session_ended';
 
@@ -110,32 +111,6 @@ export interface TtsEndedEvent extends BaseServerEvent {
   type: 'tts_ended';
 }
 
-/** 发音问题 */
-export interface PronunciationProblem {
-  /** 期望的音素/发音 */
-  expected: string;
-  /** 实际发音 (仅 wrong 类型有) */
-  actual?: string;
-  /** 问题类型 */
-  type: 'missing' | 'wrong' | 'extra';
-}
-
-/** 发音分析结果 */
-export interface PronunciationResult {
-  /** 总体评分 (0-100) */
-  score: number;
-  /** 问题音素列表 */
-  problems: PronunciationProblem[];
-  /** 改进建议 */
-  suggestion: string;
-}
-
-/** 发音分析事件 */
-export interface PronunciationEvent extends BaseServerEvent {
-  type: 'pronunciation';
-  result: PronunciationResult;
-}
-
 /** 错误事件 */
 export interface ErrorEvent extends BaseServerEvent {
   type: 'error';
@@ -157,7 +132,6 @@ export type ServerEvent =
   | ChatEvent
   | TtsEvent
   | TtsEndedEvent
-  | PronunciationEvent
   | ErrorEvent
   | SessionEndedEvent;
 

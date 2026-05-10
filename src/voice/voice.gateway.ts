@@ -84,6 +84,7 @@ export class VoiceGateway
     dto.token = payload.token;
     dto.language = payload.language;
     dto.scenario = payload.scenario;
+    dto.pronunciationAnalysisEnabled = payload.pronunciationAnalysisEnabled;
     const errors = await validate(dto);
     if (errors.length > 0) {
       this.sendMessage(client, {
@@ -101,20 +102,22 @@ export class VoiceGateway
     this.clients.set(client, sessionId);
     const language = (payload.language || 'cn') as LanguageCode;
     const scenario = payload.scenario;
+    const pronunciationAnalysisEnabled =
+      payload.pronunciationAnalysisEnabled ?? false;
     const user = this.getAuthenticatedUser(client, payload.token);
     if (!user) {
       return;
     }
 
     this.logger.log(
-      `Starting session ${sessionId} with language: ${language}, scenario: ${scenario ?? 'none'}`,
+      `Starting session ${sessionId} with language: ${language}, scenario: ${scenario ?? 'none'}, pronunciationAnalysis=${pronunciationAnalysisEnabled}`,
     );
 
     try {
       await this.voiceService.connectToRealtimeApi(
         sessionId,
         (event: ServerEvent) => this.sendEventToClient(client, event),
-        { userId: user.id, language, scenario },
+        { userId: user.id, language, scenario, pronunciationAnalysisEnabled },
       );
 
       // 发送连接成功事件
